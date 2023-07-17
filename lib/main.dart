@@ -74,32 +74,62 @@ class _ButtonPageState extends State<ButtonPage> {
           SizedBox(height: 10),
           Expanded(
             child: ListView.builder(
+              scrollDirection: Axis.horizontal,
               itemCount: selectedContacts.length,
               itemBuilder: (context, index) {
                 final contact = selectedContacts[index];
                 Uint8List? image = contact.photo;
                 return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: image != null
-                          ? MemoryImage(image)
-                          : AssetImage('assets/avatar_placeholder.png')
-                              as ImageProvider,
-                    ),
-                    title: Text(
-                      "${contact.displayName}",
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () {
-                        removeContact(contact);
-                      },
-                    ),
+                  child: Stack(
+                    children: [
+                      Column(
+                        children: [
+                          CircleAvatar(
+                            backgroundImage: image != null
+                                ? MemoryImage(image)
+                                : AssetImage('assets/avatar_placeholder.png')
+                                    as ImageProvider,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            "${contact.displayName}",
+                          ),
+                        ],
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () => removeContact(contact),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey[300],
+                            ),
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close,
+                              color: Colors.black,
+                              size: 8,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
             ),
           ),
+          if (selectedContacts.isNotEmpty) ...[
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                // Perform action with selectedContacts
+              },
+              child: Text('OK'),
+            ),
+          ],
         ],
       ),
     );
@@ -118,16 +148,15 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   List<Contact>? contacts;
-  List<bool>? checkedContacts;
   List<Contact> selectedContacts = [];
-  List<int> selectedIndices = [];
   String searchQuery = '';
   bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    getContact(); // Move getContact call here
+    getContact();
+    selectedContacts = List.from(widget.selectedContacts);
   }
 
   void getContact() async {
@@ -141,12 +170,6 @@ class _ContactsPageState extends State<ContactsPage> {
         withPhoto: true,
       );
       print(contacts);
-      checkedContacts = List<bool>.filled(contacts!.length, false);
-      selectedContacts = widget.selectedContacts;
-      selectedIndices = selectedContacts
-          .map((contact) =>
-              contacts!.indexWhere((c) => c.displayName == contact.displayName))
-          .toList();
       setState(() {
         isLoading = false;
       });
@@ -161,24 +184,27 @@ class _ContactsPageState extends State<ContactsPage> {
     if (searchQuery.isEmpty) {
       return contacts ?? [];
     } else {
-      return contacts?.where((contact) {
-            final fullName = contact.displayName.toLowerCase();
-            return fullName.contains(searchQuery.toLowerCase());
-          }).toList() ??
+      return contacts
+              ?.where((contact) => contact.displayName
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()))
+              .toList() ??
           [];
     }
   }
 
-  void toggleSelection(int index) {
+  void toggleSelection(Contact contact) {
     setState(() {
-      if (!selectedIndices.contains(index)) {
-        selectedIndices.add(index);
-        selectedContacts.add(contacts![index]);
+      if (selectedContacts.contains(contact)) {
+        selectedContacts.remove(contact);
       } else {
-        selectedIndices.remove(index);
-        selectedContacts.remove(contacts![index]);
+        selectedContacts.add(contact);
       }
     });
+  }
+
+  bool isContactSelected(Contact contact) {
+    return selectedContacts.contains(contact);
   }
 
   @override
@@ -219,7 +245,7 @@ class _ContactsPageState extends State<ContactsPage> {
                           String num = contact.phones.isNotEmpty
                               ? contact.phones.first.number
                               : "--";
-                          final isSelected = selectedIndices.contains(index);
+                          final isSelected = isContactSelected(contact);
 
                           return ListTile(
                             leading: contact.photo == null
@@ -229,15 +255,23 @@ class _ContactsPageState extends State<ContactsPage> {
                                   ),
                             title: Text(
                               "${contact.displayName}",
+                              style: TextStyle(
+                                color: isSelected ? Colors.grey : null,
+                              ),
                             ),
-                            subtitle: Text(num),
+                            subtitle: Text(
+                              num,
+                              style: TextStyle(
+                                color: isSelected ? Colors.grey : null,
+                              ),
+                            ),
                             trailing: Checkbox(
                               value: isSelected,
                               onChanged: (bool? value) {
-                                toggleSelection(index);
+                                toggleSelection(contact);
                               },
                             ),
-                            enabled: !isSelected,
+                            enabled: true,
                           );
                         },
                       ),
